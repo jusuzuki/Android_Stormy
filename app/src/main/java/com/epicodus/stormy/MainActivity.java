@@ -2,6 +2,7 @@ package com.epicodus.stormy;
 
 import android.content.Context;
 import android.graphics.drawable.Drawable;
+import android.media.Image;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.support.v4.content.ContextCompat;
@@ -12,6 +13,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -22,10 +24,12 @@ import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Response;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.util.ArrayList;
 
 import butterknife.Bind;
 import butterknife.ButterKnife;
@@ -36,6 +40,7 @@ public class MainActivity extends AppCompatActivity {
     public static final String TAG = MainActivity.class.getSimpleName();
 
     private CurrentWeather mCurrentWeather;
+    private ArrayList<CurrentWeather> mForecast;
 
     @Bind(R.id.timeLabel) TextView mTimeLabel;
     @Bind(R.id.temperatureLabel) TextView mTemperatureLabel;
@@ -45,6 +50,24 @@ public class MainActivity extends AppCompatActivity {
     @Bind(R.id.iconImageView) ImageView mIconImageView;
     @Bind(R.id.refreshImageView) ImageView mRefreshImageView;
     @Bind(R.id.progressBar) ProgressBar mProgressBar;
+
+    @Bind(R.id.forecastBox) LinearLayout mForecastBox;
+
+    @Bind(R.id.hour1Text) TextView mHour1Text;
+    @Bind(R.id.hour1Icon) ImageView mHour1Icon;
+    @Bind(R.id.hour1Temp) TextView mHour1Temp;
+    @Bind(R.id.hour2Text) TextView mHour2Text;
+    @Bind(R.id.hour2Icon) ImageView mHour2Icon;
+    @Bind(R.id.hour2Temp) TextView mHour2Temp;
+    @Bind(R.id.hour3Text) TextView mHour3Text;
+    @Bind(R.id.hour3Icon) ImageView mHour3Icon;
+    @Bind(R.id.hour3Temp) TextView mHour3Temp;
+    @Bind(R.id.hour4Text) TextView mHour4Text;
+    @Bind(R.id.hour4Icon) ImageView mHour4Icon;
+    @Bind(R.id.hour4Temp) TextView mHour4Temp;
+    @Bind(R.id.hour5Text) TextView mHour5Text;
+    @Bind(R.id.hour5Icon) ImageView mHour5Icon;
+    @Bind(R.id.hour5Temp) TextView mHour5Temp;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -104,9 +127,9 @@ public class MainActivity extends AppCompatActivity {
                     });
                     try {
                         String jsonData = response.body().string();
-                        Log.v(TAG, jsonData);
                         if (response.isSuccessful()) {
                             mCurrentWeather = getCurrentDetails(jsonData);
+                            mForecast = getForecast(jsonData);
                             runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
@@ -148,12 +171,22 @@ public class MainActivity extends AppCompatActivity {
         Drawable drawable = ContextCompat.getDrawable(this, mCurrentWeather.getIconId());
         //Drawable drawable = getResources().getDrawable(mCurrentWeather.getIconId());
         mIconImageView.setImageDrawable(drawable);
+
+        for (int index = 0; index < mForecastBox.getChildCount(); index++) {
+            LinearLayout hour = (LinearLayout) mForecastBox.getChildAt(index);
+            TextView time = (TextView) hour.getChildAt(0);
+            time.setText(mForecast.get(index).getShortTime());
+            ImageView icon = (ImageView) hour.getChildAt(1);
+            Drawable forecastDrawable = ContextCompat.getDrawable(this, mForecast.get(index).getIconId());
+            icon.setImageDrawable(forecastDrawable);
+            TextView temp = (TextView) hour.getChildAt(2);
+            temp.setText(mForecast.get(index).getTemperature() + "");
+        }
     }
 
     private CurrentWeather getCurrentDetails(String jsonData) throws JSONException {
         JSONObject forecast = new JSONObject(jsonData);
         String timezone = forecast.getString("timezone");
-        Log.i(TAG, "From JSON: " + timezone);
 
         JSONObject currently = forecast.getJSONObject("currently");
 
@@ -166,9 +199,35 @@ public class MainActivity extends AppCompatActivity {
         currentWeather.setTemperature(currently.getDouble("temperature"));
         currentWeather.setTimeZone(timezone);
 
-        Log.d(TAG, currentWeather.getFormattedTime());
-
         return currentWeather;
+    }
+
+    private ArrayList<CurrentWeather> getForecast(String jsonData) throws JSONException {
+//        JSONArray forecast = new JSONObject(jsonData)
+//                .getJSONObject("hourly")
+//                .getJSONArray("data");
+
+        JSONObject bigForecast = new JSONObject(jsonData);
+        String timezone = bigForecast.getString("timezone");
+        JSONObject hourly = bigForecast.getJSONObject("hourly");
+        JSONArray forecast = hourly.getJSONArray("data");
+
+        ArrayList<CurrentWeather> weatherForecast = new ArrayList<CurrentWeather>();
+
+        for (int index = 1; index <= 5; index++) {
+
+            JSONObject nextHourJSON = forecast.getJSONObject(index);
+            CurrentWeather nextHour = new CurrentWeather();
+
+            nextHour.setTimeZone(timezone);
+            nextHour.setTime(nextHourJSON.getLong("time"));
+            nextHour.setIcon(nextHourJSON.getString("icon"));
+            nextHour.setTemperature(nextHourJSON.getDouble("temperature"));
+
+            weatherForecast.add(nextHour);
+        }
+
+        return weatherForecast;
     }
 
     private boolean isNetworkAvailable() {

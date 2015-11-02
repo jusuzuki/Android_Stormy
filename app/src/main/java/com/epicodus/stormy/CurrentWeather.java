@@ -94,6 +94,14 @@ public class CurrentWeather {
         return timeString;
     }
 
+    public String getShortTime() {
+        SimpleDateFormat formatter = new SimpleDateFormat("h a");
+        formatter.setTimeZone(TimeZone.getTimeZone(getTimeZone()));
+        Date dateTime = new Date(getTime() * 1000);
+        String timeString = formatter.format(dateTime);
+        return timeString;
+    }
+
     public int getTemperature() {
         return (int) Math.round(mTemperature);
     }
