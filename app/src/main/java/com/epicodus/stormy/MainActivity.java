@@ -51,8 +51,8 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         ButterKnife.bind(this);
-        final double latitude = 37.8267;
-        final double longitude = -122.423;
+        final double latitude = 45.5200;
+        final double longitude = -122.6819;
 
         mProgressBar.setVisibility(View.INVISIBLE);
 
