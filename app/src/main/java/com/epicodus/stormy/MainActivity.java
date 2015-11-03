@@ -9,12 +9,13 @@ import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Menu;
-import android.view.MenuItem;
 import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -39,9 +40,12 @@ public class MainActivity extends AppCompatActivity {
 
     public static final String TAG = MainActivity.class.getSimpleName();
 
+    private double mLatitude;
+    private double mLongitude;
     private CurrentWeather mCurrentWeather;
     private ArrayList<CurrentWeather> mForecast;
 
+    @Bind(R.id.locationLabel) TextView mLocationLabel;
     @Bind(R.id.timeLabel) TextView mTimeLabel;
     @Bind(R.id.temperatureLabel) TextView mTemperatureLabel;
     @Bind(R.id.humidityValue) TextView mHumidityValue;
@@ -52,42 +56,115 @@ public class MainActivity extends AppCompatActivity {
     @Bind(R.id.progressBar) ProgressBar mProgressBar;
 
     @Bind(R.id.forecastBox) LinearLayout mForecastBox;
-
-    @Bind(R.id.hour1Text) TextView mHour1Text;
-    @Bind(R.id.hour1Icon) ImageView mHour1Icon;
-    @Bind(R.id.hour1Temp) TextView mHour1Temp;
-    @Bind(R.id.hour2Text) TextView mHour2Text;
-    @Bind(R.id.hour2Icon) ImageView mHour2Icon;
-    @Bind(R.id.hour2Temp) TextView mHour2Temp;
-    @Bind(R.id.hour3Text) TextView mHour3Text;
-    @Bind(R.id.hour3Icon) ImageView mHour3Icon;
-    @Bind(R.id.hour3Temp) TextView mHour3Temp;
-    @Bind(R.id.hour4Text) TextView mHour4Text;
-    @Bind(R.id.hour4Icon) ImageView mHour4Icon;
-    @Bind(R.id.hour4Temp) TextView mHour4Temp;
-    @Bind(R.id.hour5Text) TextView mHour5Text;
-    @Bind(R.id.hour5Icon) ImageView mHour5Icon;
-    @Bind(R.id.hour5Temp) TextView mHour5Temp;
+    @Bind(R.id.searchLayout) RelativeLayout mSearchLayout;
+    @Bind(R.id.newCityButton) Button mNewCityButton;
+    @Bind(R.id.newCitySearch) EditText mNewCitySearch;
+    @Bind(R.id.searchButton) Button mSearchButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         ButterKnife.bind(this);
-        final double latitude = 45.5200;
-        final double longitude = -122.6819;
+
+        // Portland, OR as default location
+        mLatitude = 45.5200;
+        mLongitude = -122.6819;
+        mLocationLabel.setText("Portland, OR");
 
         mProgressBar.setVisibility(View.INVISIBLE);
 
         mRefreshImageView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                getForecast(latitude, longitude);
+                getForecast(mLatitude, mLongitude);
             }
         });
 
-        getForecast(latitude, longitude);
+        mNewCityButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mSearchLayout.setVisibility(View.VISIBLE);
+            }
+        });
 
+        mSearchButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String newCity = mNewCitySearch.getText().toString();
+                getLatLong(newCity, new Runnable() {
+                    @Override
+                    public void run() {
+                        getForecast(mLatitude, mLongitude);
+                    }
+                });
+                mSearchLayout.setVisibility(View.INVISIBLE);
+            }
+        });
+
+        getForecast(mLatitude, mLongitude);
+
+    }
+
+    private void getLatLong(String newCity, final Runnable runnable) {
+        String apiKey = "AIzaSyBxH81TQrhNFsIAgv-3a-JJ4O1IwmDMIcQ";
+        String searchUrl = "https://maps.googleapis.com/maps/api/geocode/json?address="+newCity+"&key="+apiKey;
+        mLocationLabel.setText(newCity);
+
+        if(isNetworkAvailable()) {
+            toggleRefresh();
+
+            OkHttpClient client = new OkHttpClient();
+            Request request = new Request.Builder()
+                    .url(searchUrl)
+                    .build();
+
+            Call call = client.newCall(request);
+            call.enqueue(new Callback() {
+                @Override
+                public void onFailure(Request request, IOException e) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            toggleRefresh();
+                        }
+                    });
+                    alertUserAboutError();
+                }
+
+                @Override
+                public void onResponse(Response response) throws IOException {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            toggleRefresh();
+                        }
+                    });
+                    try {
+                        String jsonData = response.body().string();
+                        if (response.isSuccessful()) {
+                            JSONObject newCityData = new JSONObject(jsonData);
+                            JSONArray newCityResults = newCityData.getJSONArray("results");
+                            JSONObject newCityJSON = newCityResults.getJSONObject(0);
+                            JSONObject location = newCityJSON.getJSONObject("geometry").getJSONObject("location");
+                            mLatitude = location.getDouble("lat");
+                            mLongitude = location.getDouble("lng");
+                            runOnUiThread(runnable);
+                        } else {
+                            alertUserAboutError();
+                        }
+                    } catch (IOException e) {
+                        Log.e(TAG, "Exception caught: ", e);
+                    } catch (JSONException e) {
+                        Log.e(TAG, "Exception caught: ", e);
+                    }
+                }
+
+            });
+
+        } else {
+            Toast.makeText(this, "Network is unavailable!", Toast.LENGTH_LONG).show();
+        }
     }
 
     private void getForecast(double latitude, double longitude) {
